@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f0f0f0;
+      font-family: Arial, sans-serif;
+    }
+
+    .minesweeper-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 40px);
+      gap: 4px;
+      border: 2px solid #333;
+      background-color: #999;
+      padding: 10px;
+    }
+
+    .cell {
+      width: 40px;
+      height: 40px;
+      background-color: #ccc;
+      border: 1px solid #777;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 18px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .cell.hidden {
+      background-color: #999;
+    }
+
+    .cell.clicked {
+      background-color: #ddd;
+      cursor: default;
+    }
+
+    .popup-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 1;
+    }
+
+    .popup {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      animation: fade-in 0.3s;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+</style>
+  <title>Minesweeper</title>
+</head>
+<body>
+  <input type="file" id="soundFiles" accept="audio/mpeg" multiple>
+  <button id="createGridButton">Create Grid</button>
+  <div class="minesweeper-grid" id="grid"></div>
+  <div class="popup-overlay" id="popupOverlay">
+    <div class="popup" id="popupContent"></div>
+  </div>
+ <script>
+  const grid = document.getElementById("grid");
+  const popupOverlay = document.getElementById("popupOverlay");
+  const popupContent = document.getElementById("popupContent");
+  const soundFilesInput = document.getElementById("soundFiles");
+  const createGridButton = document.getElementById("createGridButton");
+  const cells = [];
+  let currentlyPlayingAudio = null; // Track the currently playing audio element
+
+  function createCell(row, col) {
+    const cell = document.createElement("div");
+    cell.className = "cell hidden";
+    cell.dataset.row = row;
+    cell.dataset.col = col;
+    cell.addEventListener("click", () => handleCellClick(cell));
+    grid.appendChild(cell);
+    cells.push(cell);
+  }
+
+  function handleCellClick(cell) {
+    cell.classList.remove("hidden");
+    cell.classList.add("clicked");
+
+    const audioUrl = cell.dataset.audio;
+    if (audioUrl) {
+      if (currentlyPlayingAudio) {
+        currentlyPlayingAudio.pause(); // Pause the currently playing audio
+        currentlyPlayingAudio.currentTime = 0; // Reset audio to start
+      }
+      currentlyPlayingAudio = playSound(audioUrl);
+    }
+
+    displayPopup("Cell Content", cell.dataset.row, cell.dataset.col);
+  }
+
+  function playSound(audioUrl) {
+    const audio = new Audio(audioUrl);
+    audio.play();
+    audio.addEventListener("ended", () => {
+      currentlyPlayingAudio = null; // Reset currentlyPlayingAudio when audio ends
+    });
+    return audio;
+  }
+
+    function displayPopup(content, row, col) {
+      popupContent.innerHTML = `<p>Content: ${content}</p><p>Row: ${row}</p><p>Col: ${col}</p>`;
+      popupOverlay.style.display = "flex";
+      setTimeout(() => {
+        popupOverlay.style.display = "none";
+        popupContent.innerHTML = "";
+      }, 3000);
+    }
+
+    function createGrid(numCells) {
+      grid.innerHTML = ""; // Clear existing grid
+      cells.length = 0;
+
+      const gridSize = Math.ceil(Math.sqrt(numCells));
+
+      grid.style.gridTemplateColumns = `repeat(${gridSize}, 40px)`;
+
+      for (let i = 0; i < numCells; i++) {
+        createCell(Math.floor(i / gridSize), i % gridSize);
+      }
+
+      // Update the URL with the grid configuration
+      const urlParams = new URLSearchParams(window.location.search);
+      urlParams.set('gridConfig', numCells);
+      history.replaceState(null, '', '?' + urlParams.toString());
+    }
+
+    createGridButton.addEventListener("click", () => {
+      const soundFiles = soundFilesInput.files;
+      createGrid(soundFiles.length);
+      
+      // Store the URLs of the sound files within the cells
+      cells.forEach((cell, index) => {
+        if (index < soundFiles.length) {
+          cell.dataset.audio = URL.createObjectURL(soundFiles[index]);
+        } else {
+          cell.dataset.audio = "";
+        }
+      });
+    });
+
+    // Function to recreate the grid from URL parameters
+    function recreateGridFromParams(numCells) {
+      grid.innerHTML = "";
+      cells.length = 0;
+
+      const gridSize = Math.ceil(Math.sqrt(numCells));
+
+      grid.style.gridTemplateColumns = `repeat(${gridSize}, 40px)`;
+
+      for (let i = 0; i < numCells; i++) {
+        createCell(Math.floor(i / gridSize), i % gridSize);
+      }
+    }
+
+    // Read URL parameters and recreate grid if necessary
+    const urlParams = new URLSearchParams(window.location.search);
+    const gridConfig = urlParams.get('gridConfig');
+    if (gridConfig) {
+      recreateGridFromParams(parseInt(gridConfig));
+    }
+  </script>
+</body>
+</html>
